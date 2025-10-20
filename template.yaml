@@ -2,7 +2,7 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
   lifehub-lambda
-  
+
   Serverless backend for personal data integration project
 
 Globals:
@@ -11,7 +11,7 @@ Globals:
     MemorySize: 128
 
 Resources:
-  RecipeFunction:
+  TaskRouterFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: .
@@ -20,19 +20,19 @@ Resources:
       Architectures:
         - x86_64
       Events:
-        RecipePost:
+        TaskDispatcher:
           Type: HttpApi
           Properties:
-            Path: /recipe
+            Path: /task
             Method: post
 
 Outputs:
-  RecipeApi:
-    Description: "API Gateway endpoint URL for Recipe function"
-    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/recipe"
-  RecipeFunction:
-    Description: "Recipe Lambda Function ARN"
-    Value: !GetAtt RecipeFunction.Arn
-  RecipeFunctionIamRole:
-    Description: "Implicit IAM Role created for Recipe function"
-    Value: !GetAtt RecipeFunctionRole.Arn
+  TaskApi:
+    Description: "API Gateway endpoint URL for unified task handler"
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/task"
+  TaskRouterFunction:
+    Description: "Task routing Lambda Function ARN"
+    Value: !GetAtt TaskRouterFunction.Arn
+  TaskRouterFunctionIamRole:
+    Description: "Implicit IAM Role created for task router function"
+    Value: !GetAtt TaskRouterFunctionRole.Arn

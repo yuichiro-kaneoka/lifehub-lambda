@@ -1,104 +1,84 @@
 import json
-import sys
 import os
+import sys
 
 # Add parent directory to path to import app
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app import lambda_handler
 
 
-def test_recipe_endpoint_success():
-    """Test successful POST to /recipe endpoint"""
+def build_event(path="/task", method="POST", body=None):
     event = {
-        'requestContext': {
-            'http': {
-                'method': 'POST',
-                'path': '/recipe'
-            }
-        },
-        'body': json.dumps({
-            'name': 'Test Recipe',
-            'ingredients': ['ingredient1', 'ingredient2'],
-            'calories': 500,
-            'date': '2025-10-20'
-        })
-    }
-    
-    response = lambda_handler(event, {})
-    
-    assert response['statusCode'] == 200
-    body = json.loads(response['body'])
-    assert body['status'] == 'ok'
-    print("✓ Test successful POST to /recipe endpoint passed")
-
-
-def test_recipe_endpoint_missing_fields():
-    """Test POST to /recipe endpoint with missing fields"""
-    event = {
-        'requestContext': {
-            'http': {
-                'method': 'POST',
-                'path': '/recipe'
-            }
-        },
-        'body': json.dumps({
-            'name': 'Test Recipe'
-            # Missing other required fields
-        })
-    }
-    
-    response = lambda_handler(event, {})
-    
-    assert response['statusCode'] == 400
-    body = json.loads(response['body'])
-    assert body['status'] == 'error'
-    print("✓ Test POST with missing fields passed")
-
-
-def test_recipe_endpoint_invalid_json():
-    """Test POST to /recipe endpoint with invalid JSON"""
-    event = {
-        'requestContext': {
-            'http': {
-                'method': 'POST',
-                'path': '/recipe'
-            }
-        },
-        'body': 'invalid json'
-    }
-    
-    response = lambda_handler(event, {})
-    
-    assert response['statusCode'] == 400
-    body = json.loads(response['body'])
-    assert body['status'] == 'error'
-    print("✓ Test POST with invalid JSON passed")
-
-
-def test_recipe_endpoint_not_found():
-    """Test request to non-existent endpoint"""
-    event = {
-        'requestContext': {
-            'http': {
-                'method': 'GET',
-                'path': '/notfound'
+        "requestContext": {
+            "http": {
+                "method": method,
+                "path": path,
             }
         }
     }
-    
+    if body is not None:
+        event["body"] = json.dumps(body)
+    return event
+
+
+def test_task_add_recipe_success():
+    event = build_event(
+        body={
+            "action": "add_recipe",
+            "name": "Test Recipe",
+            "ingredients": ["ingredient1", "ingredient2"],
+            "calories": 500,
+            "date": "2025-10-20",
+        }
+    )
+
     response = lambda_handler(event, {})
-    
-    assert response['statusCode'] == 404
-    body = json.loads(response['body'])
-    assert body['status'] == 'error'
-    print("✓ Test 404 not found passed")
+
+    assert response["statusCode"] == 200
+    body = json.loads(response["body"])
+    assert body["status"] == "ok"
+    assert body["recipe"]["name"] == "Test Recipe"
 
 
-if __name__ == '__main__':
-    print("Running tests...")
-    test_recipe_endpoint_success()
-    test_recipe_endpoint_missing_fields()
-    test_recipe_endpoint_invalid_json()
-    test_recipe_endpoint_not_found()
-    print("\nAll tests passed!")
+def test_task_missing_action():
+    event = build_event(body={"name": "Test"})
+
+    response = lambda_handler(event, {})
+
+    assert response["statusCode"] == 400
+    body = json.loads(response["body"])
+    assert body["status"] == "error"
+    assert "action" in body["message"]
+
+
+def test_task_unknown_action():
+    event = build_event(body={"action": "nonexistent"})
+
+    response = lambda_handler(event, {})
+
+    assert response["statusCode"] == 400
+    body = json.loads(response["body"])
+    assert body["status"] == "error"
+    assert "Unknown action" in body["message"]
+
+
+def test_task_invalid_json():
+    event = build_event()
+    event["body"] = "invalid json"
+
+    response = lambda_handler(event, {})
+
+    assert response["statusCode"] == 400
+    body = json.loads(response["body"])
+    assert body["status"] == "error"
+
+
+def test_task_not_found_path():
+    event = build_event(path="/other")
+
+    response = lambda_handler(event, {})
+
+    assert response["statusCode"] == 404
+    body = json.loads(response["body"])
+    assert body["status"] == "error"
