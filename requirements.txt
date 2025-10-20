@@ -1,2 +1,2 @@
-# No external dependencies required for basic functionality
-# Add dependencies here as needed
+# Core dependency for Google Sheets integration
+gspread>=5.7.0

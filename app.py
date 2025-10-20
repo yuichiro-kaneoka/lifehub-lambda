@@ -1,100 +1,77 @@
+"""AWS Lambda entrypoint exposing a task-based orchestration layer."""
+
+from __future__ import annotations
+
 import json
+from typing import Any, Dict, Tuple
+
+from actions import ACTION_REGISTRY, ActionHandler
+
+DEFAULT_HEADERS = {"Content-Type": "application/json"}
 
 
-def lambda_handler(event, context):
-    """
-    AWS Lambda handler for the /recipe endpoint.
-    
-    Accepts POST requests with JSON body containing:
-    - name: Recipe name
-    - ingredients: List of ingredients
-    - calories: Calorie count
-    - date: Date of the recipe
-    
-    Returns: {"status": "ok"}
-    """
-    
-    # Extract HTTP method and path
-    http_method = event.get('requestContext', {}).get('http', {}).get('method', '')
-    path = event.get('requestContext', {}).get('http', {}).get('path', '')
-    
-    # Route to /recipe endpoint
-    if path == '/recipe' and http_method == 'POST':
+class BadRequest(Exception):
+    """Raised when the input payload is invalid."""
+
+
+def build_response(status_code: int, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Return an API Gateway compatible response."""
+
+    return {
+        "statusCode": status_code,
+        "headers": DEFAULT_HEADERS,
+        "body": json.dumps(payload),
+    }
+
+
+def resolve_body(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract and validate the JSON body from the API Gateway event."""
+
+    body = event.get("body")
+    if body is None:
+        raise BadRequest("No body provided")
+
+    if isinstance(body, str):
         try:
-            # Parse the request body
-            if 'body' in event and event['body']:
-                if isinstance(event['body'], str):
-                    body = json.loads(event['body'])
-                elif isinstance(event['body'], dict):
-                    body = event['body']
-                else:
-                    raise ValueError("Body must be a string or dict")
-                
-                # Validate required fields
-                required_fields = ['name', 'ingredients', 'calories', 'date']
-                if all(field in body for field in required_fields):
-                    # Process the recipe data (in a real application, you would save this to a database)
-                    # For now, we just return success
-                    
-                    return {
-                        'statusCode': 200,
-                        'headers': {
-                            'Content-Type': 'application/json'
-                        },
-                        'body': json.dumps({'status': 'ok'})
-                    }
-                else:
-                    return {
-                        'statusCode': 400,
-                        'headers': {
-                            'Content-Type': 'application/json'
-                        },
-                        'body': json.dumps({
-                            'status': 'error',
-                            'message': 'Missing required fields: name, ingredients, calories, date'
-                        })
-                    }
-            else:
-                return {
-                    'statusCode': 400,
-                    'headers': {
-                        'Content-Type': 'application/json'
-                    },
-                    'body': json.dumps({
-                        'status': 'error',
-                        'message': 'No body provided'
-                    })
-                }
-        except json.JSONDecodeError:
-            return {
-                'statusCode': 400,
-                'headers': {
-                    'Content-Type': 'application/json'
-                },
-                'body': json.dumps({
-                    'status': 'error',
-                    'message': 'Invalid JSON'
-                })
-            }
-        except Exception as e:
-            return {
-                'statusCode': 500,
-                'headers': {
-                    'Content-Type': 'application/json'
-                },
-                'body': json.dumps({
-                    'status': 'error',
-                    'message': str(e)
-                })
-            }
-    else:
-        return {
-            'statusCode': 404,
-            'headers': {
-                'Content-Type': 'application/json'
-            },
-            'body': json.dumps({
-                'status': 'error',
-                'message': 'Not found'
-            })
-        }
+            return json.loads(body or "{}")
+        except json.JSONDecodeError as exc:
+            raise BadRequest("Invalid JSON") from exc
+
+    if isinstance(body, dict):
+        return body
+
+    raise BadRequest("Body must be a JSON string or object")
+
+
+def dispatch_action(payload: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
+    """Route payload to the appropriate action handler."""
+
+    action_name = payload.get("action")
+    if not action_name:
+        raise BadRequest("'action' is required")
+
+    handler: ActionHandler | None = ACTION_REGISTRY.get(action_name)
+    if handler is None:
+        raise BadRequest(f"Unknown action: {action_name}")
+
+    return handler(payload)
+
+
+def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # noqa: D401
+    """AWS Lambda handler that orchestrates task execution based on action."""
+
+    request_context = event.get("requestContext", {}).get("http", {})
+    http_method = request_context.get("method", "")
+    path = request_context.get("path", "")
+
+    if path != "/task" or http_method.upper() != "POST":
+        return build_response(404, {"status": "error", "message": "Not found"})
+
+    try:
+        payload = resolve_body(event)
+        status_code, result = dispatch_action(payload)
+        return build_response(status_code, result)
+    except BadRequest as exc:
+        return build_response(400, {"status": "error", "message": str(exc)})
+    except Exception as exc:  # pragma: no cover - safeguard for unexpected errors
+        return build_response(500, {"status": "error", "message": str(exc)})
