@@ -1,0 +1,38 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  lifehub-lambda
+  
+  Serverless backend for personal data integration project
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 128
+
+Resources:
+  RecipeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Architectures:
+        - x86_64
+      Events:
+        RecipePost:
+          Type: HttpApi
+          Properties:
+            Path: /recipe
+            Method: post
+
+Outputs:
+  RecipeApi:
+    Description: "API Gateway endpoint URL for Recipe function"
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/recipe"
+  RecipeFunction:
+    Description: "Recipe Lambda Function ARN"
+    Value: !GetAtt RecipeFunction.Arn
+  RecipeFunctionIamRole:
+    Description: "Implicit IAM Role created for Recipe function"
+    Value: !GetAtt RecipeFunctionRole.Arn
