@@ -22,8 +22,13 @@ def lambda_handler(event, context):
     if path == '/recipe' and http_method == 'POST':
         try:
             # Parse the request body
-            if 'body' in event:
-                body = json.loads(event['body']) if isinstance(event['body'], str) else event['body']
+            if 'body' in event and event['body']:
+                if isinstance(event['body'], str):
+                    body = json.loads(event['body'])
+                elif isinstance(event['body'], dict):
+                    body = event['body']
+                else:
+                    raise ValueError("Body must be a string or dict")
                 
                 # Validate required fields
                 required_fields = ['name', 'ingredients', 'calories', 'date']

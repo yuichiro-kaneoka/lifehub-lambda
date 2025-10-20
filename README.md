@@ -23,8 +23,8 @@ A minimal serverless backend for personal data integration using AWS Lambda and 
 
 Accepts a JSON body with the following fields:
 - `name` (string): Recipe name
-- `ingredients` (any): List of ingredients
-- `calories` (any): Calorie count
+- `ingredients` (array): List of ingredients
+- `calories` (number): Calorie count
 - `date` (string): Date of the recipe
 
 **Example Request:**
