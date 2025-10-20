@@ -7,7 +7,8 @@ A minimal serverless backend for personal data integration using AWS Lambda and 
 ## Features
 
 - AWS Lambda (Python 3.11) with HTTP API Gateway
-- POST /recipe endpoint for storing recipe data
+- Unified POST `/task` endpoint that dispatches by the `action` field
+- Modular action handlers under `actions/` for easy expansion
 - Simple JSON-based API
 - Easy deployment using AWS SAM
 
@@ -19,19 +20,22 @@ A minimal serverless backend for personal data integration using AWS Lambda and 
 
 ## API Endpoint
 
-### POST /recipe
+### POST /task
 
-Accepts a JSON body with the following fields:
-- `name` (string): Recipe name
-- `ingredients` (array): List of ingredients
-- `calories` (number): Calorie count
-- `date` (string): Date of the recipe
+Accepts a JSON body with the following base fields:
+- `action` (string): Name of the task to execute.
+- Additional fields depending on the action. For example, `add_recipe` expects:
+  - `name` (string): Recipe name
+  - `ingredients` (array): List of ingredients
+  - `calories` (number): Calorie count
+  - `date` (string): Date of the recipe
 
 **Example Request:**
 ```bash
-curl -X POST https://your-api-endpoint/recipe \
+curl -X POST https://your-api-endpoint/task \
   -H "Content-Type: application/json" \
   -d '{
+    "action": "add_recipe",
     "name": "Pasta Carbonara",
     "ingredients": ["pasta", "eggs", "bacon", "parmesan"],
     "calories": 450,
@@ -42,7 +46,13 @@ curl -X POST https://your-api-endpoint/recipe \
 **Response:**
 ```json
 {
-  "status": "ok"
+  "status": "ok",
+  "recipe": {
+    "name": "Pasta Carbonara",
+    "ingredients": ["pasta", "eggs", "bacon", "parmesan"],
+    "calories": 450,
+    "date": "2025-10-20"
+  }
 }
 ```
 
@@ -88,9 +98,10 @@ sam local start-api
 
 Then test with:
 ```bash
-curl -X POST http://127.0.0.1:3000/recipe \
+curl -X POST http://127.0.0.1:3000/task \
   -H "Content-Type: application/json" \
   -d '{
+    "action": "add_recipe",
     "name": "Test Recipe",
     "ingredients": ["test"],
     "calories": 100,
@@ -102,12 +113,13 @@ curl -X POST http://127.0.0.1:3000/recipe \
 
 ```
 lifehub-lambda/
+├── actions/            # Modular action handlers
 ├── app.py              # Lambda function handler
 ├── template.yaml       # SAM/CloudFormation template
 ├── requirements.txt    # Python dependencies
-├── Makefile           # Easy deployment commands
-├── .gitignore         # Git ignore rules
-└── README.md          # This file
+├── Makefile            # Easy deployment commands
+├── tests/              # Automated tests
+└── README.md           # This file
 ```
 
 ## Cleaning Up
